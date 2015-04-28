@@ -156,43 +156,10 @@ prop_disque() ->
 
 %% BUGS FOUND??
 %% -----------------------------------------------------------------------
-bug1(Attempts) ->
-  Cmds =
-    [{set,{var,1},{call,disque_eqc,qlen,[]}},
-     {set,{var,2},{call,disque_eqc,qlen,[]}},
-     {set,{var,3},{call,disque_eqc,addjob,[<<212,88,200,14>>,#{timeout => 300}]}},
-     {set,{var,4},{call,disque_eqc,ackjob,[[]]}},
-     {set,{var,5},{call,disque_eqc,addjob,[<<" 3(R">>,#{timeout => 300}]}},
-     {set,{var,6},{call,disque_eqc,addjob,[<<"3ªÝð">>,#{timeout => 300}]}},
-     {set,{var,7},{call,disque_eqc,qlen,[]}},
-     {set,{var,8},{call,disque_eqc,qlen,[]}},
-     {set,{var,9},{call,disque_eqc,addjob,[<<"ü">>,#{timeout => 300}]}},
-     {set,{var,10},{call,disque_eqc,qlen,[]}},
-     {set,{var,11},{call,disque_eqc,qlen,[]}},
-     {set,{var,12},{call,disque_eqc,qlen,[]}},
-     {set,{var,13},{call,disque_eqc,addjob,[<<21>>,#{timeout => 300}]}},
-     {set,{var,14},{call,disque_eqc,addjob,[<<"*">>,#{timeout => 300}]}},
-     {set,{var,15},{call,disque_eqc,qlen,[]}},
-     {set,{var,16},{call,disque_eqc,qlen,[]}},
-     {set,{var,17},{call,disque_eqc,addjob,[<<"l±">>,#{timeout => 300}]}},
-     {set,{var,18},{call,disque_eqc,qlen,[]}},
-     {set,{var,19},{call,disque_eqc,addjob,[<<134,141>>,#{timeout => 300}]}},
-     {set,{var,20},{call,disque_eqc,ackjob,[[]]}},
-     {set,{var,21},{call,disque_eqc,qlen,[]}},
-     {set,{var,22},{call,disque_eqc,qlen,[]}},
-     {set,{var,23},{call,disque_eqc,addjob,[<<>>,#{timeout => 300}]}},
-     {set,{var,24},{call,disque_eqc,addjob,[<<"mí">>,#{timeout => 300}]}},
-     {set,{var,25},{call,disque_eqc,qlen,[]}},
-     {set,{var,26},{call,disque_eqc,qlen,[]}},
-     {set,{var,27},{call,disque_eqc,addjob,[<<222,181,150>>,#{timeout => 300}]}},
-     {set,{var,28},{call,disque_eqc,addjob,[<<2>>,#{timeout => 300}]}},
-     {set,{var,29},{call,disque_eqc,addjob,[<<"ÔTëû">>,#{timeout => 300}]}},
-     {set,{var,30},{call,disque_eqc,qlen,[]}},
-     {set,{var,31},{call,disque_eqc,addjob,[<<94,22,29,127>>,#{timeout => 300}]}},
-     {set,{var,32},{call,disque_eqc,addjob,[<<"¡2">>,#{timeout => 300}]}}],
-  eqc:check(prop_disque(), [Attempts, Cmds]).
 
-bug2(Attempts) ->
+%% This bug manifests itself as a nondeterministic bug some times. It may be relevant
+%% what came before, but I've seen the error happen with this set of messages at least.
+bug1(Attempts) ->
   Cmds =
     [{set,{var,1},{call,disque_eqc,addjob,[<<>>,#{timeout => 300}]}},
      {set,{var,2},
