@@ -1,0 +1,8 @@
+{application, disque_eqc,
+ [{description, "Quickcheck testing of disque"},
+  {vsn, "0.0.1"},
+  {modules, []},
+  {registered, []},
+  {applications, [eredis, kernel, stdlib]},
+  {env, []}
+ ]}.
