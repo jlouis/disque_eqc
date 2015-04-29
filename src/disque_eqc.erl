@@ -182,26 +182,7 @@ prop_disque() ->
               R == ok)))
       end))))).
 
-%% BUGS FOUND??
+%% BUGS FOUND
 %% -----------------------------------------------------------------------
 
-%% This bug manifests itself as a nondeterministic bug some times. It may be relevant
-%% what came before, but I've seen the error happen with this set of messages at least.
-bug1(Attempts) ->
-  Cmds =
-    [{set,{var,1},{call,disque_eqc,addjob,[<<>>,#{timeout => 300}]}},
-     {set,{var,2},
-          {call,disque_eqc,addjob,
-                [<<209,100,0,105,182,14,6,2,62>>,#{timeout => 300}]}},
-     {set,{var,3},
-          {call,disque_eqc,addjob,[<<39,157,129,26,95,242,121>>,#{timeout => 300}]}},
-     {set,{var,4},
-          {call,disque_eqc,addjob,[<<232,223,179,218,130,58>>,#{timeout => 300}]}},
-     {set,{var,5},{call,disque_eqc,addjob,[<<>>,#{timeout => 300}]}},
-     {set,{var,6},{call,disque_eqc,addjob,[<<237,158,171,168,97>>,#{timeout => 300}]}},
-     {set,{var,7},{call,disque_eqc,addjob,[<<"?~">>,#{timeout => 300}]}},
-     {set,{var,8},
-          {call,disque_eqc,addjob,[<<61,96,195,99,167,139>>,#{timeout => 300}]}},
-     {set,{var,9},{call,disque_eqc,qlen,[]}}],
-  eqc:check(prop_disque(), [Attempts, Cmds]).
- 
+%% None at the moment.
