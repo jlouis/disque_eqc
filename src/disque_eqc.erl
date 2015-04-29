@@ -136,6 +136,12 @@ setup() ->
     register(disque_conn, Pid),
     Pid.
 
+clean_state(#state { contents = Cs, gotten = Gs }) ->
+    Elems = [ID || {ID, _} <- Cs ++ Gs],
+    Len = length(Elems),
+    {ok, Len} = disque:ackjob(whereis(disque_conn), Elems),
+    ok.
+
 empty_q(QName) ->
     {ok, Len} = disque:qlen(whereis(disque_conn), ?Q),
     empty_q(QName, Len).
@@ -145,9 +151,12 @@ empty_q(QName, Len) when Len > 0 ->
     case disque:getjob(whereis(disque_conn), [QName], #{ count => Len }) of
         {ok, []} -> ok;
         {ok, Jobs} ->
-            {ok, _} = disque:ackjob(whereis(disque_conn), [ID || {ID, _} <- Jobs]),
+            {ok, Len} = disque:ackjob(whereis(disque_conn), job_ids(Jobs)),
             empty_q(QName)
     end.
+
+job_ids([]) -> [];
+job_ids([[?Q, ID, _Job] | Js]) -> [ID | job_ids(Js)].
 
 %% PROPERTY SECTION
 %% -----------------------------------------------------------------------
@@ -166,6 +175,7 @@ prop_disque() ->
       begin
           empty_q(?Q),
           {H,S,R} = run_commands(?MODULE, Cmds),
+          ok = clean_state(S),
           pretty_commands(?MODULE, Cmds, {H,S,R},
             aggregate(command_names(Cmds),
             measure(length, length(Cmds),
