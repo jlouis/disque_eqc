@@ -51,8 +51,8 @@ addjob_post(_S, [_Job, _], JobID) when is_binary(JobID) -> true.
 getjob(Count, Timeout) ->
     disque:getjob(whereis(disque_conn), [?Q], #{ count => Count, timeout => Timeout }).
     
-getjob_args(#state { contents = []}) -> [1, 1];
-getjob_args(#state { contents = Cs}) -> [choose(1, length(Cs)), 0].
+% getjob_args(#state { contents = []}) -> [1, 1];
+% getjob_args(#state { contents = Cs}) -> [choose(1, length(Cs)), 0].
 
 getjob_next(#state { contents = [] } = State, _, _) ->
     State;
@@ -118,9 +118,9 @@ fastack(JobIDs) ->
     
 fastack_pre(#state { contents = C, gotten = G }) -> (C /= []) orelse (G /= []).
 
-fastack_args(#state { contents = C, gotten = G}) ->
-    IDs = [ID || {ID, _} <- C] ++ [ID || {ID, _} <- G],
-    [list(elements(IDs))].
+% fastack_args(#state { contents = C, gotten = G}) ->
+%     IDs = [ID || {ID, _} <- C] ++ [ID || {ID, _} <- G],
+%     [list(elements(IDs))].
     
 fastack_pre(#state { contents = C}, [JobIDs]) ->
     lists:all(fun(ID) -> lists:keymember(ID, 1, C) end, JobIDs).
@@ -146,6 +146,7 @@ clean_state(#state { contents = Cs, gotten = Gs }) ->
     Elems = [ID || {ID, _} <- Cs ++ Gs],
     Len = length(Elems),
     {ok, Len} = disque:ackjob(whereis(disque_conn), Elems),
+    [tracer:record({ackjob, E}) || E <- Elems],
     ok.
 
 empty_q(QName) ->
@@ -183,14 +184,15 @@ prop_disque() ->
           ok = tracer:start_recording(),
           {H,S,R} = run_commands(?MODULE, Cmds),
           ok = clean_state(S),
-          Trace = tracer:stop_recording(),
-          FinalValue = lists:max([T || {T, _E} <- Trace ++ [{0, dummy}]]),
+          Trace = lists:sort(tracer:stop_recording()),
+          %% FinalValue = lists:max([T || {T, _E} <- Trace ++ [{0, dummy}]]),
           Events = eqc_temporal:from_timed_list(Trace),
           LiveJobs = stateful(
               fun({addjob, Job}) -> [{job, Job}] end,
-              fun({ackjob, Job}, {job, Job}) -> [] end,
+              fun({job, Job}, {ackjob, Job}) -> [] end,
               Events),
-          LivePastEnd = any_future(FinalValue, LiveJobs),
+          LivePastEnd = all_future(LiveJobs),
+          %% io:format("~nTrace:~n~p~n~p~n~p~n", [Trace, LiveJobs, LivePastEnd]),
           pretty_commands(?MODULE, Cmds, {H,S,R},
             aggregate(command_names(Cmds),
             measure(length, length(Cmds),
