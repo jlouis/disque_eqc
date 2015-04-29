@@ -74,7 +74,7 @@ addjob_opts_async(_) -> [].
 %% GETJOB
 %% -----------------------------------------------------------------------
 
-getjob(P, Qs) -> getjob(P, Qs, #{}).
+getjob(P, Qs) when is_pid(P), is_list(Qs) -> getjob(P, Qs, #{}).
 
 getjob(P, Qs, Opts) ->
     eredis:q(P, ["GETJOB" | getjob_opts(Opts, ["FROM" | Qs])]).
@@ -93,11 +93,11 @@ getjob_opts_count(_, Tail) -> Tail.
 %% QLEN
 %% -----------------------------------------------------------------------
 
-qlen(Pid, Q) ->
-    case eredis:q(Pid, ["QLEN", Q]) of
+qlen(Pid, Q) when is_pid(Pid) ->
+    case eredis:q(Pid, ["QLEN", Q])of
       {ok, LenBin} -> {ok, binary_to_integer(LenBin)};
       Otherwise -> Otherwise
     end.
 
-qpeek(Pid, Q, Count) ->
+qpeek(Pid, Q, Count) when is_pid(Pid), is_integer(Count) ->
     eredis:q(Pid, ["QPEEK", Q, Count]).
