@@ -7,7 +7,8 @@
 	addjob/3, addjob/4,
 	fastack/2,
 	getjob/2, getjob/3,
-	qlen/2
+	qlen/2,
+	qpeek/3
 ]).
 
 start_link() ->
@@ -98,3 +99,5 @@ qlen(Pid, Q) ->
       Otherwise -> Otherwise
     end.
 
+qpeek(Pid, Q, Count) ->
+    eredis:q(Pid, ["QPEEK", Q, Count]).

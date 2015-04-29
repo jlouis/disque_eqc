@@ -66,6 +66,23 @@ getjob_post(#state { contents = Cs }, [Count, _Timeout], Res) ->
         _Otherwise -> {error, Res}
     end.
 
+%% Peeking the queue
+%% -----------------------------------------------------------------------
+qpeek(Count) ->
+    disque:qpeek(whereis(disque_conn), ?Q, Count).
+    
+qpeek_args(_S) -> [int()].
+
+qpeek_post(#state { contents = [] }, _, Res) ->
+    eq(Res, {ok, []});
+qpeek_post(_S, [0], Res) -> eq(Res, {ok, []});
+qpeek_post(#state { contents = Cs }, [Count], Res) when Count > 0 ->
+    {Taken, _} = lists:split(min(length(Cs), Count), Cs),
+    eq(Res, {ok, [[ID, X] || {ID, X} <- Taken]});
+qpeek_post(#state { contents = Cs }, [Count], Res) when Count < 0 ->
+    {Taken, _} = lists:split(min(length(Cs), abs(Count)), lists:reverse(Cs)),
+    eq(Res, {ok, [[ID, X] || {ID, X} <- Taken]}).
+    
 %% Acking jobs in the queue
 %% -----------------------------------------------------------------------
 ackjob(JobIDs) ->
@@ -137,7 +154,7 @@ empty_q(QName, Len) when Len > 0 ->
 weight(_S, qlen) -> 30;
 weight(_S, addjob) -> 100;
 weight(_S, ackjob) -> 100;
-weight(#state { contents = [] }, getjob) -> 5;
+weight(#state { contents = [] }, getjob) -> 3;
 weight(_S, _) -> 100.
 
 prop_disque() ->
