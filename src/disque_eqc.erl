@@ -152,6 +152,7 @@ empty_q(QName, Len) when Len > 0 ->
 %% PROPERTY SECTION
 %% -----------------------------------------------------------------------
 weight(_S, qlen) -> 30;
+weight(_S, qpeek) -> 30;
 weight(_S, addjob) -> 100;
 weight(_S, ackjob) -> 100;
 weight(#state { contents = [] }, getjob) -> 3;
