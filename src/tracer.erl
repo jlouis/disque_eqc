@@ -30,7 +30,7 @@ record(Event) ->
 
 %% CALLBACKS
 init([]) ->
-    #state { start_time = erlang:monotonic_time(), events = [] }.
+    {ok, #state { start_time = erlang:monotonic_time(), events = [] }}.
 
 handle_call(start_recording, _From, State) ->
     TS = erlang:monotonic_time(),
