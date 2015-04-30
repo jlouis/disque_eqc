@@ -1,4 +1,8 @@
-[{<<"eredis">>,
+[{<<"exec">>,
+  {git,"https://github.com/saleyn/erlexec.git",
+       {ref,"6c311527bdafc87f3491e4e60b29e7a1b0f33c6e"}},
+  0},
+ {<<"eredis">>,
   {git,"https://github.com/wooga/eredis.git",
        {ref,"f6900e2a828430badac173250e00d540c5c5a02f"}},
   0}].

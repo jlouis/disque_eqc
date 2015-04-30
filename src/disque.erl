@@ -1,6 +1,6 @@
 -module(disque).
 
--export([start_link/0]).
+-export([start_link/0, start_link/2]).
 
 -export([
 	ackjob/2,
@@ -11,8 +11,11 @@
 	qpeek/3
 ]).
 
-start_link() ->
-    eredis:start_link("127.0.0.1", 7711).
+start_link() -> start_link("127.0.0.1", 7711).
+    
+start_link(Host, Port) ->
+    eredis:start_link(Host, Port).
+
 
 %% ADDJOB
 %% -----------------------------------------------------------------------
@@ -93,11 +96,11 @@ getjob_opts_count(_, Tail) -> Tail.
 %% QLEN
 %% -----------------------------------------------------------------------
 
-qlen(Pid, Q) when is_pid(Pid) ->
+qlen(Pid, Q) when is_pid(Pid); is_atom(Pid) ->
     case eredis:q(Pid, ["QLEN", Q])of
       {ok, LenBin} -> {ok, binary_to_integer(LenBin)};
       Otherwise -> Otherwise
     end.
 
-qpeek(Pid, Q, Count) when is_pid(Pid), is_integer(Count) ->
+qpeek(Pid, Q, Count) when is_pid(Pid) orelse is_atom(Pid), is_integer(Count) ->
     eredis:q(Pid, ["QPEEK", Q, Count]).
