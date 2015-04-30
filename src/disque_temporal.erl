@@ -30,7 +30,7 @@ qlen_post(#state { added = As }, [_], Res) ->
 
 %% Adding jobs
 %% -----------------------------------------------------------------------
-addjob_opts() -> #{ timeout => 300 }.
+addjob_opts() -> #{ timeout => 300, replicate => 2 }.
 
 addjob(C, Job, Opts) ->
     case disque:addjob(C, ?Q, Job, Opts) of
@@ -242,3 +242,12 @@ prop_disque() ->
 %% -----------------------------------------------------------------------
 
 %% None at the moment.
+
+bug1(Attempts) ->
+    X = [{set,{var,1},
+      		{call,disque_temporal,addjob,
+            		[disque_conn_2,<<>>,#{replicate => 2,timeout => 300}]}},
+      		{set,{var,2},{call,disque_temporal,qpeek,[disque_conn_1,1]}}],
+    eqc:check(prop_disque(), [Attempts, disque_conn_1, X]).
+
+      
