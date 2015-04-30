@@ -7,8 +7,9 @@
 
 -define(Q, <<"test_queue">>).
 -record(state, {
-	contents = [],
-	gotten = []
+	added = [],
+	gotten = [],
+	acked = []
 }).
 
 initial_state() -> #state{}.
@@ -24,8 +25,8 @@ qlen(C) ->
     
 qlen_args(_S) -> [conn()].
     
-qlen_post(#state { contents = C }, [_], Res) ->
-    eq(Res, length(C)).
+qlen_post(#state { added = As }, [_], Res) ->
+    Res =< length(As).
 
 %% Adding jobs
 %% -----------------------------------------------------------------------
@@ -42,8 +43,8 @@ addjob(C, Job, Opts) ->
 addjob_args(_S) ->
     [conn(), binary(), addjob_opts()].
 
-addjob_next(#state { contents = C } = State, JobID, [_, Job, _]) ->
-    State#state { contents = C ++ [{JobID, Job}] }.
+addjob_next(#state { added = C } = State, JobID, [_, Job, _]) ->
+    State#state { added = C ++ [{JobID, Job}] }.
 
 addjob_post(_S, [_, _Job, _], {error, Err}) -> {error, Err};
 addjob_post(_S, [_, _Job, _], JobID) when is_binary(JobID) -> true.
@@ -53,18 +54,18 @@ addjob_post(_S, [_, _Job, _], JobID) when is_binary(JobID) -> true.
 % getjob(Count, Timeout) ->
 %     disque:getjob(whereis(disque_conn), [?Q], #{ count => Count, timeout => Timeout }).
 %     
-% getjob_args(#state { contents = []}) -> [1, 1];
-% getjob_args(#state { contents = Cs}) -> [choose(1, length(Cs)), 0].
+% getjob_args(#state { added = []}) -> [1, 1];
+% getjob_args(#state { added = Cs}) -> [choose(1, length(Cs)), 0].
 % 
-% getjob_next(#state { contents = [] } = State, _, _) ->
+% getjob_next(#state { added = [] } = State, _, _) ->
 %     State;
-% getjob_next(#state { contents = Cs, gotten = Gotten } = State, _, [Count, _Timeout]) ->
+% getjob_next(#state { added = Cs, gotten = Gotten } = State, _, [Count, _Timeout]) ->
 %     {Taken, Rest} = lists:split(Count, Cs),
-%     State#state { contents = Rest, gotten = Gotten ++ Taken }.
+%     State#state { added = Rest, gotten = Gotten ++ Taken }.
 % 
-% getjob_post(#state { contents = [] }, [_Count, _Timeout], Res) ->
+% getjob_post(#state { added = [] }, [_Count, _Timeout], Res) ->
 %     eq(Res, {ok, undefined});
-% getjob_post(#state { contents = Cs }, [Count, _Timeout], Res) ->
+% getjob_post(#state { added = Cs }, [Count, _Timeout], Res) ->
 %     {Taken, _} = lists:split(Count, Cs),
 %     case Res of
 %         {ok, Jobs} -> eq(Jobs, [[?Q, ID, X] || {ID, X} <- Taken]);
@@ -78,13 +79,13 @@ qpeek(C, Count) ->
     
 qpeek_args(_S) -> [conn(), int()].
 
-qpeek_post(#state { contents = [] }, _, Res) ->
+qpeek_post(#state { added = [] }, _, Res) ->
     eq(Res, {ok, []});
 qpeek_post(_S, [_, 0], Res) -> eq(Res, {ok, []});
-qpeek_post(#state { contents = Cs }, [_, Count], Res) when Count > 0 ->
+qpeek_post(#state { added = Cs }, [_, Count], Res) when Count > 0 ->
     {Taken, _} = lists:split(min(length(Cs), Count), Cs),
     eq(Res, {ok, [[ID, X] || {ID, X} <- Taken]});
-qpeek_post(#state { contents = Cs }, [_, Count], Res) when Count < 0 ->
+qpeek_post(#state { added = Cs }, [_, Count], Res) when Count < 0 ->
     {Taken, _} = lists:split(min(length(Cs), abs(Count)), lists:reverse(Cs)),
     eq(Res, {ok, [[ID, X] || {ID, X} <- Taken]}).
     
@@ -95,20 +96,20 @@ ackjob(C, JobIDs) ->
     [tracer:record({ackjob, JobID}) || JobID <- JobIDs],
     R.
     
-ackjob_pre(#state { contents = C, gotten = G }) -> (C /= []) orelse (G /= []).
+ackjob_pre(#state { added = C, gotten = G }) -> (C /= []) orelse (G /= []).
 
-ackjob_args(#state { contents = C, gotten = G}) ->
+ackjob_args(#state { added = C, gotten = G}) ->
     IDs = [ID || {ID, _} <- C] ++ [ID || {ID, _} <- G],
     [conn(), list(elements(IDs))].
     
-ackjob_pre(#state { contents = C}, [_, JobIDs]) ->
+ackjob_pre(#state { added = C}, [_, JobIDs]) ->
     lists:all(fun(ID) -> lists:keymember(ID, 1, C) end, JobIDs).
     
-ackjob_next(#state { contents = C, gotten = G } = State, _, [_, JobIDs]) ->
+ackjob_next(#state { added = C, gotten = G } = State, _, [_, JobIDs]) ->
     F = fun(JobID, Cts) -> lists:keydelete(JobID, 1, Cts) end,
     NewC = lists:foldl(F, C, JobIDs),
     NewG = lists:foldl(F, G, JobIDs),
-    State#state { contents = NewC, gotten = NewG }.
+    State#state { added = NewC, gotten = NewG }.
 
 ackjob_post(_S, [_, JobIDs], Res) ->
     eq(Res, {ok, length(lists:usort(JobIDs))}).
@@ -118,20 +119,20 @@ ackjob_post(_S, [_, JobIDs], Res) ->
 % fastack(JobIDs) ->
 %     disque:fastack(whereis(disque_conn), JobIDs).
 %     
-% fastack_pre(#state { contents = C, gotten = G }) -> (C /= []) orelse (G /= []).
+% fastack_pre(#state { added = C, gotten = G }) -> (C /= []) orelse (G /= []).
 % 
-% fastack_args(#state { contents = C, gotten = G}) ->
+% fastack_args(#state { added = C, gotten = G}) ->
 %     IDs = [ID || {ID, _} <- C] ++ [ID || {ID, _} <- G],
 %     [list(elements(IDs))].
 %     
-% fastack_pre(#state { contents = C}, [JobIDs]) ->
+% fastack_pre(#state { added = C}, [JobIDs]) ->
 %     lists:all(fun(ID) -> lists:keymember(ID, 1, C) end, JobIDs).
 %     
-% fastack_next(#state { contents = C, gotten = G } = State, _, [JobIDs]) ->
+% fastack_next(#state { added = C, gotten = G } = State, _, [JobIDs]) ->
 %     F = fun(JobID, Cts) -> lists:keydelete(JobID, 1, Cts) end,
 %     NewC = lists:foldl(F, C, JobIDs),
 %     NewG = lists:foldl(F, G, JobIDs),
-%     State#state { contents = NewC, gotten = NewG }.
+%     State#state { added = NewC, gotten = NewG }.
 % 
 % fastack_post(_S, [JobIDs], Res) ->
 %     eq(Res, {ok, length(lists:usort(JobIDs))}).
@@ -140,40 +141,47 @@ ackjob_post(_S, [_, JobIDs], Res) ->
 %% -----------------------------------------------------------------------
 setup() ->
     exec:start([]),
-    {ok, _, Server1} = exec:run("/home/jlouis/Store/P/disque/src/disque-server --port 7711", []),
+    {ok, _, Server1} = exec:run("/home/jlouis/Store/P/disque/src/disque-server "
+    		"--port 7711 --cluster-config-file nodes-7711.conf", []),
+    {ok, _, Server2} = exec:run("/home/jlouis/Store/P/disque/src/disque-server "
+    		"--port 7712 --cluster-config-file nodes-7712.conf", []),
     timer:sleep(400),
     {ok, Pid1} = disque:start_link("127.0.0.1", 7711),
     register(disque_conn_1, Pid1),
     unlink(Pid1),
-    {ok, Pid2} = disque:start_link("127.0.0.1", 7711),
+    {ok, Pid2} = disque:start_link("127.0.0.1", 7712),
     register(disque_conn_2, Pid2),
     unlink(Pid2),
+    {ok, <<"OK">>} = disque:cluster(Pid1, {meet, "127.0.0.1", 7712}),
     {ok, TracerPid} = tracer:start_link(),
     unlink(TracerPid),
     #{
-      disque_conn_1 => Pid1,
-      disque_conn_2 => Pid2,
+      disque_conns => [Pid1, Pid2],
       tracer => TracerPid,
-      disque_server_1 => Server1
+      disque_servers => [Server1, Server2]
     }.
 
 teardown(#{
-	disque_conn_1 := Pid1,
-	disque_conn_2 := Pid2,
+	disque_conns := DConns,
 	tracer := TracerPid,
-	disque_server_1 := Server1 }) ->
-    true = exit(Pid1, kill),
-    true = exit(Pid2, kill),
+	disque_servers := Servers }) ->
+    [true = exit(Pid, kill) || Pid <- DConns],
     true = exit(TracerPid, kill),
-    ok = exec:stop(Server1),
+    [ok = exec:stop(Server) || Server <- Servers],
     ok.
 
-clean_state(C, #state { contents = Cs, gotten = Gs }) ->
+clean_state(C, #state { added = Cs, gotten = Gs }) ->
     Elems = [ID || {ID, _} <- Cs ++ Gs],
     Len = length(Elems),
-    {ok, Len} = disque:ackjob(C, Elems),
-    [tracer:record({ackjob, E}) || E <- Elems],
-    ok.
+    case disque:ackjob(C, Elems) of
+        {ok, Len} ->
+          [tracer:record({ackjob, E}) || E <- Elems],
+          ok;
+        {ok, Count} ->
+          {unclean, Count};
+        {error, Msg} ->
+          exit({error, Msg, {ackjob, Elems}})
+    end.
 
 empty_q(C, QName) ->
     {ok, Len} = disque:qlen(C, ?Q),
@@ -197,7 +205,7 @@ weight(_S, qlen) -> 30;
 weight(_S, qpeek) -> 30;
 weight(_S, addjob) -> 100;
 weight(_S, ackjob) -> 100;
-weight(#state { contents = [] }, getjob) -> 3;
+weight(#state { added = [] }, getjob) -> 3;
 weight(_S, _) -> 100.
 
 prop_disque() ->
@@ -226,7 +234,7 @@ prop_disque() ->
             measure(length, length(Cmds),
               conjunction([
                 {postcondition, R == ok},
-                {temporal, eqc_temporal:is_false(LivePastEnd)}
+                {unacked_jobs, eqc_temporal:is_false(LivePastEnd)}
               ]))))
       end)))))).
 

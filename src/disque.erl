@@ -5,6 +5,7 @@
 -export([
 	ackjob/2,
 	addjob/3, addjob/4,
+	cluster/2,
 	fastack/2,
 	getjob/2, getjob/3,
 	qlen/2,
@@ -16,6 +17,11 @@ start_link() -> start_link("127.0.0.1", 7711).
 start_link(Host, Port) ->
     eredis:start_link(Host, Port).
 
+%% CLUSTER OPERATIONS
+%% -----------------------------------------------------------------------
+
+cluster(Pid, {meet, Host, Port}) ->
+    eredis:q(Pid, ["CLUSTER", "MEET", Host, Port]).
 
 %% ADDJOB
 %% -----------------------------------------------------------------------
