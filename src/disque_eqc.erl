@@ -129,6 +129,44 @@ fastack_next(#state { contents = C, gotten = G } = State, _, [JobIDs]) ->
 fastack_post(_S, [JobIDs], Res) ->
     eq(Res, {ok, length(lists:usort(JobIDs))}).
 
+%% Showing the contents of an ID
+%% -----------------------------------------------------------------------
+show(ID) ->
+    disque:show(whereis(disque_conn), ID).
+    
+show_pre(#state { contents = C, gotten = G }) -> (C /= []) orelse (G /= []).
+
+ids(Xs) -> [ID || {ID, _} <- Xs].
+
+show_args(#state { contents = Cs, gotten = Gs }) ->
+    IDs = ids(Cs) ++ ids(Gs),
+    [elements(IDs)].
+
+show_pre(#state { contents = Cs, gotten = Gs}, [ID]) ->
+    lists:member(ID, ids(Cs) ++ ids(Gs)).
+
+show_post(#state { contents = Cs }, [ID], {ok, M}) ->
+    case M of
+       #{ id := ID, state := State } ->
+           case lists:member(ID, ids(Cs)) of
+               true -> eq(State, <<"queued">>);
+               false -> eq(State, <<"active">>)
+           end
+    end.
+   
+%% Cycle the connection
+%% -----------------------------------------------------------------------
+cycle_conn() ->
+    OldPid = whereis(disque_conn),
+    unlink(OldPid),
+    exit(OldPid, kill),
+    NewPid = setup(),
+    NewPid /= OldPid.
+    
+cycle_conn_args(_S) -> [].
+
+cycle_conn_post(_S, [], Res) -> eq(Res, true).
+
 %% SETUP/CLEANUP
 %% -----------------------------------------------------------------------
 setup() ->
@@ -162,13 +200,15 @@ job_ids([[?Q, ID, _Job] | Js]) -> [ID | job_ids(Js)].
 %% -----------------------------------------------------------------------
 weight(_S, qlen) -> 30;
 weight(_S, qpeek) -> 30;
+weight(_S, show) -> 30;
 weight(_S, addjob) -> 100;
 weight(_S, ackjob) -> 100;
 weight(#state { contents = [] }, getjob) -> 3;
+weight(_S, cycle_conn) -> 5;
 weight(_S, _) -> 100.
 
 prop_disque() ->
-  ?SETUP(fun() -> Pid = setup(), fun() -> exit(Pid, kill) end end,
+  ?SETUP(fun() -> setup(), fun() -> exit(whereis(disque_conn), kill) end end,
   ?FORALL(Attempts, ?SHRINK(1, [20]),
   ?FORALL(Cmds, commands(?MODULE),
     ?SOMETIMES(1, ?ALWAYS(Attempts, 
@@ -178,7 +218,7 @@ prop_disque() ->
           ok = clean_state(S),
           pretty_commands(?MODULE, Cmds, {H,S,R},
             aggregate(command_names(Cmds),
-            measure(length, length(Cmds),
+            collect(eqc_lib:summary(length), length(Cmds),
               R == ok)))
       end))))).
 
