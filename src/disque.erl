@@ -9,7 +9,8 @@
 	fastack/2,
 	getjob/2, getjob/3,
 	qlen/2,
-	qpeek/3
+	qpeek/3,
+	show/2
 ]).
 
 start_link() -> start_link("127.0.0.1", 7711).
@@ -110,3 +111,36 @@ qlen(Pid, Q) when is_pid(Pid); is_atom(Pid) ->
 
 qpeek(Pid, Q, Count) when is_pid(Pid) orelse is_atom(Pid), is_integer(Count) ->
     eredis:q(Pid, ["QPEEK", Q, Count]).
+
+%% SHOW
+%% -----------------------------------------------------------------------
+
+show(L, ID) when
+	is_pid(L) orelse is_atom(L),
+	is_binary(ID) ->
+    case eredis:q(L, ["SHOW", ID]) of
+       {ok, Pairs} -> {ok, show_map(Pairs)};
+       {error, _} = Err -> Err
+    end.
+
+show_map(Pairs) ->
+    maps:from_list(show_map_pair(Pairs)).
+    
+show_map_pair([]) -> [];
+show_map_pair([<<"id">>, ID | Next]) -> [{id, ID} | show_map_pair(Next)];
+show_map_pair([<<"queue">>, Q | Next]) -> [{queue, Q} | show_map_pair(Next)];
+show_map_pair([<<"state">>, S | Next]) -> [{state, S} | show_map_pair(Next)];
+show_map_pair([<<"repl">>, R | Next]) -> [{replication_factor, binary_to_integer(R)} | show_map_pair(Next)];
+show_map_pair([<<"ttl">>, TTL | Next]) -> [{ttl, binary_to_integer(TTL)} | show_map_pair(Next)];
+show_map_pair([<<"ctime">>, CT | Next]) ->
+	[{ctime, binary_to_integer(CT)} | show_map_pair(Next)];
+show_map_pair([<<"delay">>, D | Next]) -> [{delay, binary_to_integer(D)} | show_map_pair(Next)];
+show_map_pair([<<"retry">>, R | Next]) -> [{retry, binary_to_integer(R)} | show_map_pair(Next)];
+show_map_pair([<<"nodes-delivered">>, Ns | Next]) -> [{nodes_delivery, Ns} | show_map_pair(Next)];
+show_map_pair([<<"nodes-confirmed">>, Ns | Next]) -> [{nodes_confirmed, Ns} | show_map_pair(Next)];
+show_map_pair([<<"next-requeue-within">>, T | Next]) -> [{next_requeue_within, binary_to_integer(T)} | show_map_pair(Next)];
+show_map_pair([<<"next-awake-within">>, T | Next]) -> [{next_awake_within, binary_to_integer(T)} | show_map_pair(Next)];
+show_map_pair([<<"body">>, B | Next]) -> [{body, B} | show_map_pair(Next)].
+
+
+
